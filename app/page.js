@@ -1,5 +1,5 @@
-import PeepsPop from "../components/PeepsPop";
+import PeoplePop from "../components/PeoplePop";
 
 export default function Home() {
-  return <PeepsPop />;
+  return <PeoplePop />;
 }

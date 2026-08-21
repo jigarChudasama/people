@@ -29,4 +29,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-/public/peeps-bundle.json
+/public/people-bundle.json

@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --peeps-bg: #fdfbf9;
-  --peeps-ink: #111111;
-  --peeps-accent: #3b82f6;
+  --people-bg: #fdfbf9;
+  --people-ink: #111111;
+  --people-accent: #3b82f6;
 }
 
 @theme inline {
-  --color-peeps-bg: var(--peeps-bg);
-  --color-peeps-ink: var(--peeps-ink);
+  --color-people-bg: var(--people-bg);
+  --color-people-ink: var(--people-ink);
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
 }
@@ -22,24 +22,24 @@
 html,
 body {
   height: 100%;
-  background: var(--peeps-bg);
-  color: var(--peeps-ink);
+  background: var(--people-bg);
+  color: var(--people-ink);
 }
 
 .viewport {
   width: 100vw;
   height: 100vh;
   overflow: auto;
-  background-color: var(--peeps-bg);
+  background-color: var(--people-bg);
   user-select: none;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  cursor: url("/arrow-cursor.svg"), grab;
+  cursor: var(--cursor-arrow, url("/arrow-cursor.svg")) 4 2, grab;
   touch-action: none;
 }
 
 .viewport.is-dragging {
-  cursor: url("/hand-cursor.svg"), grabbing;
+  cursor: var(--cursor-hand, url("/hand-cursor.svg")) 10 4, grabbing;
 }
 
 .viewport::-webkit-scrollbar {
@@ -55,7 +55,7 @@ body {
   opacity: 1;
 }
 
-.peep-slot {
+.people-slot {
   pointer-events: none;
   overflow: visible;
   background: transparent;
@@ -72,13 +72,13 @@ body {
   }
 }
 
-.peep-slot--enter {
+.people-slot--enter {
   animation: 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards row-reveal;
   animation-delay: var(--reveal-delay);
   opacity: 0;
 }
 
-.peep-slot svg {
+.people-slot svg {
   width: 100%;
   height: 100%;
   overflow: visible;
@@ -86,7 +86,7 @@ body {
   transition: filter 0.6s ease-out;
 }
 
-.peep-slot .bobbing {
+.people-slot .bobbing {
   transform-box: fill-box;
   transform-origin: 50% 85%;
 }
@@ -102,7 +102,7 @@ body {
   }
 }
 
-.peep-blink svg [id^="face/"] {
+.people-blink svg [id^="face/"] {
   animation: 0.3s ease-in-out blink;
 }
 
@@ -131,7 +131,7 @@ body {
   }
 }
 
-@keyframes peep-scatter {
+@keyframes people-scatter {
   0% {
     transform: translate(0) rotate(0);
   }
@@ -147,44 +147,44 @@ body {
   animation: 0.25s ease-in-out infinite earthquake;
 }
 
-.crowd.earthquake .peep-slot {
+.crowd.earthquake .people-slot {
   --sx: 0px;
   --sy: 0px;
   --sr: 0deg;
-  animation: 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards peep-scatter;
+  animation: 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards people-scatter;
 }
 
-.crowd.earthquake .peep-slot:nth-child(6n) {
+.crowd.earthquake .people-slot:nth-child(6n) {
   --sx: -18px;
   --sy: -12px;
   --sr: -8deg;
 }
 
-.crowd.earthquake .peep-slot:nth-child(6n + 1) {
+.crowd.earthquake .people-slot:nth-child(6n + 1) {
   --sx: 14px;
   --sy: -16px;
   --sr: 6deg;
 }
 
-.crowd.earthquake .peep-slot:nth-child(6n + 2) {
+.crowd.earthquake .people-slot:nth-child(6n + 2) {
   --sx: -10px;
   --sy: 20px;
   --sr: -5deg;
 }
 
-.crowd.earthquake .peep-slot:nth-child(6n + 3) {
+.crowd.earthquake .people-slot:nth-child(6n + 3) {
   --sx: 22px;
   --sy: 8px;
   --sr: 10deg;
 }
 
-.crowd.earthquake .peep-slot:nth-child(6n + 4) {
+.crowd.earthquake .people-slot:nth-child(6n + 4) {
   --sx: -16px;
   --sy: -20px;
   --sr: -12deg;
 }
 
-.crowd.earthquake .peep-slot:nth-child(6n + 5) {
+.crowd.earthquake .people-slot:nth-child(6n + 5) {
   --sx: 12px;
   --sy: 14px;
   --sr: 7deg;
@@ -314,8 +314,8 @@ body {
   filter: sepia(0.2) saturate(1.5) hue-rotate(100deg) brightness(1.08);
 }
 
-.loading-peeps {
-  color: color-mix(in srgb, var(--peeps-ink) 70%, transparent);
+.loading-people {
+  color: color-mix(in srgb, var(--people-ink) 70%, transparent);
   font-size: clamp(1.1rem, 2.5vw, 1.5rem);
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -336,55 +336,94 @@ body {
   width: min(220px, 50vw);
   height: 4px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--peeps-ink) 10%, transparent);
+  background: color-mix(in srgb, var(--people-ink) 10%, transparent);
   border-radius: 999px;
 }
 
 .loading-bar-fill {
   height: 100%;
-  background: var(--peeps-accent);
+  background: var(--people-accent);
   border-radius: inherit;
   transition: width 0.2s ease-out;
 }
 
-.topbar {
+.control-bar {
   z-index: 9999;
   position: fixed;
-  top: 16px;
-  right: 16px;
+  bottom: max(18px, env(safe-area-inset-bottom, 0px));
   left: 16px;
+  right: 16px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   pointer-events: none;
 }
 
 .control-dock {
+  position: relative;
+  isolation: isolate;
   pointer-events: auto;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
+  justify-content: center;
   gap: 10px 12px;
   max-width: min(100%, 640px);
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--peeps-bg) 88%, white);
-  border: 1.5px solid color-mix(in srgb, var(--peeps-ink) 12%, transparent);
-  border-radius: 18px;
+  padding: 12px 14px;
+  color: var(--people-ink);
+  background:
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, white 78%, transparent) 0%,
+      color-mix(in srgb, white 62%, transparent) 45%,
+      color-mix(in srgb, white 70%, transparent) 100%
+    ),
+    color-mix(in srgb, var(--people-bg) 72%, white);
+  border: 1px solid color-mix(in srgb, white 75%, transparent);
+  border-radius: 28px;
   box-shadow:
-    0 1px 0 color-mix(in srgb, white 70%, transparent),
-    0 10px 28px color-mix(in srgb, var(--peeps-ink) 10%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  animation: dock-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+    0 1px 0 color-mix(in srgb, white 85%, transparent) inset,
+    0 -1px 0 color-mix(in srgb, white 25%, transparent) inset,
+    0 18px 48px color-mix(in srgb, black 14%, transparent),
+    0 4px 14px color-mix(in srgb, black 7%, transparent);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  animation: dock-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.control-dock::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, white 55%, transparent) 0%,
+    transparent 42%
+  );
+  pointer-events: none;
 }
 
 @keyframes dock-in {
   from {
     opacity: 0;
-    transform: translateY(-10px) scale(0.98);
+    transform: translateY(14px) scale(0.96);
   }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .control-dock {
+    background: color-mix(in srgb, var(--people-bg) 92%, white);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .control-dock::before {
+    display: none;
   }
 }
 
@@ -397,7 +436,7 @@ body {
 
 .control-label {
   padding-left: 4px;
-  color: color-mix(in srgb, var(--peeps-ink) 45%, transparent);
+  color: color-mix(in srgb, var(--people-ink) 50%, transparent);
   font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.08em;
@@ -411,21 +450,29 @@ body {
   align-items: center;
   gap: 2px;
   padding: 3px;
-  background: color-mix(in srgb, var(--peeps-ink) 4%, transparent);
-  border-radius: 12px;
+  background: color-mix(in srgb, var(--people-ink) 7%, white);
+  border: 1px solid color-mix(in srgb, var(--people-ink) 10%, transparent);
+  border-radius: 16px;
+  box-shadow: 0 1px 0 color-mix(in srgb, white 70%, transparent) inset;
 }
 
 .control-divider {
   align-self: stretch;
   width: 1px;
   margin: 4px 0 2px;
-  background: color-mix(in srgb, var(--peeps-ink) 12%, transparent);
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--people-ink) 18%, transparent) 20%,
+    color-mix(in srgb, var(--people-ink) 18%, transparent) 80%,
+    transparent
+  );
 }
 
 .ctrl-btn {
   appearance: none;
-  color: color-mix(in srgb, var(--peeps-ink) 78%, transparent);
-  cursor: url("/hand-cursor.svg"), pointer;
+  color: color-mix(in srgb, var(--people-ink) 78%, transparent);
+  cursor: var(--cursor-hand, url("/hand-cursor.svg")) 10 4, pointer;
   white-space: nowrap;
   background: transparent;
   border: none;
@@ -443,8 +490,8 @@ body {
 }
 
 .ctrl-btn:hover:not(.active) {
-  color: var(--peeps-ink);
-  background: color-mix(in srgb, var(--peeps-ink) 6%, transparent);
+  color: var(--people-ink);
+  background: color-mix(in srgb, var(--people-ink) 6%, transparent);
 }
 
 .ctrl-btn:active {
@@ -452,14 +499,16 @@ body {
 }
 
 .ctrl-btn:focus-visible {
-  outline: 2px solid var(--peeps-accent);
+  outline: 2px solid var(--people-accent);
   outline-offset: 2px;
 }
 
 .ctrl-btn.active {
   color: #fff;
-  background: var(--peeps-accent);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--peeps-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--people-accent) 88%, white);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 35%, transparent) inset,
+    0 4px 14px color-mix(in srgb, var(--people-accent) 40%, transparent);
 }
 
 .ctrl-btn.icon-btn {
@@ -494,21 +543,34 @@ body {
   margin-bottom: 1px;
   padding: 8px 12px;
   color: #9a3412;
-  background: color-mix(in srgb, #ea580c 12%, transparent);
-  border: 1.5px solid color-mix(in srgb, #ea580c 28%, transparent);
-  border-radius: 12px;
+  background: color-mix(
+    in srgb,
+    color-mix(in srgb, #ea580c 55%, white) 28%,
+    transparent
+  );
+  border: 1px solid color-mix(in srgb, #ea580c 40%, white);
+  border-radius: 16px;
+  box-shadow: 0 1px 0 color-mix(in srgb, white 45%, transparent) inset;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .ctrl-btn.quake-btn:hover:not(.active) {
   color: #7c2d12;
-  background: color-mix(in srgb, #ea580c 18%, transparent);
+  background: color-mix(
+    in srgb,
+    color-mix(in srgb, #ea580c 60%, white) 36%,
+    transparent
+  );
 }
 
 .ctrl-btn.quake-btn.active {
   color: #fff;
-  background: #ea580c;
-  border-color: #ea580c;
-  box-shadow: 0 4px 14px color-mix(in srgb, #ea580c 40%, transparent);
+  background: color-mix(in srgb, #ea580c 90%, white);
+  border-color: color-mix(in srgb, #ea580c 80%, white);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 30%, transparent) inset,
+    0 4px 16px color-mix(in srgb, #ea580c 42%, transparent);
   animation: quake-pulse 0.35s ease;
 }
 
@@ -523,19 +585,16 @@ body {
 }
 
 @media (max-width: 720px) {
-  .topbar {
-    top: auto;
-    bottom: 14px;
+  .control-bar {
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
     left: 12px;
     right: 12px;
-    justify-content: center;
   }
 
   .control-dock {
-    justify-content: center;
     gap: 8px 10px;
-    padding: 9px 10px;
-    border-radius: 16px;
+    padding: 10px 11px;
+    border-radius: 24px;
   }
 
   .control-divider {
