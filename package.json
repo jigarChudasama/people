@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/build-peeps-bundle.mjs",
+    "prebuild": "node scripts/build-peeps-bundle.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build:peeps": "node scripts/build-peeps-bundle.mjs"
   },
   "dependencies": {
     "next": "16.3.2",

@@ -17,6 +17,14 @@ const SPEED = {
 };
 const PEEP_COUNT = 105;
 const GRID = 26;
+const CROWD_W = 4175;
+const CROWD_H = 3766;
+const PEEP_W = 260;
+const PEEP_H = 351;
+const COL_STEP = 155;
+const ROW_STEP = 135;
+const VIEW_PAD = 520;
+const COLORIZE_CACHE = new Map();
 
 function shuffleIds() {
   const ids = Array.from({ length: PEEP_COUNT }, (_, i) => i + 1);
@@ -147,13 +155,11 @@ function colorizePeep(html, seed) {
       }
 
       if (section === "head") {
-        // White head fill = skin; black ink + tint fills = hair.
         if (isWhite) return `fill="${skin}"`;
         return `fill="${hair}"`;
       }
 
       if (section === "face") {
-        // Keep face features (eyes/mouth) black.
         return match;
       }
 
@@ -180,6 +186,31 @@ function prepareSvg(raw) {
     .replace(/\s{2,}/g, " ")
     .replace(/(<g id="head\/)/, '<g class="bobbing">$1')
     .replace(/(<\/g>\s*<\/g>\s*<\/g>\s*<\/g>\s*<\/svg>)/, "</g>$1");
+}
+
+function getColoredHtml(peepId, template, seed) {
+  const key = `${peepId}:${seed}`;
+  let html = COLORIZE_CACHE.get(key);
+  if (!html) {
+    html = colorizePeep(template, seed);
+    COLORIZE_CACHE.set(key, html);
+  }
+  return html;
+}
+
+function resolveTemplate(svgs, peepId) {
+  if (svgs[peepId]) return { id: peepId, template: svgs[peepId] };
+  const keys = Object.keys(svgs);
+  if (keys.length === 0) return null;
+  const id = Number(keys[peepId % keys.length]);
+  return { id, template: svgs[id] };
+}
+
+function slotPosition(row, col, factors) {
+  return {
+    left: COL_STEP * col + (row % 2 === 1 ? 75 : 0) + factors.offsetX,
+    top: ROW_STEP * row + factors.offsetY,
+  };
 }
 
 function IconVertical() {
@@ -230,18 +261,64 @@ function IconQuake() {
   );
 }
 
+function IconSlow() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+function IconFast() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />
+    </svg>
+  );
+}
+
+function IconMusicOff() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M9 18V5l12-2v13" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="18" cy="16" r="3" />
+      <line x1="3" y1="3" x2="21" y2="21" />
+    </svg>
+  );
+}
+
+function IconMusicOn() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M9 18V5l12-2v13" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="18" cy="16" r="3" />
+    </svg>
+  );
+}
+
 export default function PeepsPop() {
-  const [svgs, setSvgs] = useState({});
+  const [svgs, setSvgs] = useState(null);
+  const [loadProgress, setLoadProgress] = useState(0);
   const [motion, setMotion] = useState("vertical");
   const [speed, setSpeed] = useState("normal");
   const [musicOn, setMusicOn] = useState(true);
   const [trackIndex, setTrackIndex] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [earthquake, setEarthquake] = useState(false);
+  const [view, setView] = useState({
+    left: 0,
+    top: 0,
+    width: typeof window !== "undefined" ? window.innerWidth : 1200,
+    height: typeof window !== "undefined" ? window.innerHeight : 800,
+  });
 
   const audioRef = useRef(null);
   const viewportRef = useRef(null);
   const crowdRef = useRef(null);
+  const viewRafRef = useRef(0);
   const dragRef = useRef({
     active: false,
     pointerId: null,
@@ -251,9 +328,20 @@ export default function PeepsPop() {
     scrollTop: 0,
   });
 
-  useEffect(() => {
+  function syncView() {
     const viewport = viewportRef.current;
     if (!viewport) return;
+    setView({
+      left: viewport.scrollLeft,
+      top: viewport.scrollTop,
+      width: viewport.clientWidth,
+      height: viewport.clientHeight,
+    });
+  }
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || !svgs) return;
 
     function onPointerDown(event) {
       if (event.button !== 0) return;
@@ -291,34 +379,91 @@ export default function PeepsPop() {
       }
     }
 
+    function onScrollOrResize() {
+      if (viewRafRef.current) return;
+      viewRafRef.current = requestAnimationFrame(() => {
+        viewRafRef.current = 0;
+        syncView();
+      });
+    }
+
     viewport.addEventListener("pointerdown", onPointerDown);
     viewport.addEventListener("pointermove", onPointerMove);
     viewport.addEventListener("pointerup", endDrag);
     viewport.addEventListener("pointercancel", endDrag);
+    viewport.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize);
 
     return () => {
       viewport.removeEventListener("pointerdown", onPointerDown);
       viewport.removeEventListener("pointermove", onPointerMove);
       viewport.removeEventListener("pointerup", endDrag);
       viewport.removeEventListener("pointercancel", endDrag);
+      viewport.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
+      if (viewRafRef.current) cancelAnimationFrame(viewRafRef.current);
     };
   }, [svgs]);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadPeeps() {
+    async function loadFromBundle() {
+      const res = await fetch("/peeps-bundle.json");
+      if (!res.ok) throw new Error("bundle missing");
+      if (!cancelled) setLoadProgress(40);
+      const data = await res.json();
+      if (!cancelled) setLoadProgress(90);
+      return data;
+    }
+
+    async function loadIndividually() {
       const next = {};
+      let done = 0;
+      const concurrency = 12;
+      let cursor = 1;
+
+      async function worker() {
+        while (cursor <= PEEP_COUNT) {
+          const id = cursor;
+          cursor += 1;
+          const res = await fetch(`/peeps/peep-${id}.svg`);
+          const text = await res.text();
+          next[id] = prepareSvg(text);
+          done += 1;
+          if (!cancelled) {
+            setLoadProgress(Math.round((done / PEEP_COUNT) * 100));
+            if (done === 16 || done === 40 || done === PEEP_COUNT) {
+              setSvgs({ ...next });
+            }
+          }
+        }
+      }
+
       await Promise.all(
-        Array.from({ length: PEEP_COUNT }, (_, i) =>
-          fetch(`/peeps/peep-${i + 1}.svg`)
-            .then((res) => res.text())
-            .then((text) => {
-              next[i + 1] = prepareSvg(text);
-            })
-        )
+        Array.from({ length: concurrency }, () => worker())
       );
-      if (!cancelled) setSvgs(next);
+      return next;
+    }
+
+    async function loadPeeps() {
+      try {
+        const data = await loadFromBundle();
+        if (cancelled) return;
+        const normalized = {};
+        for (let i = 1; i <= PEEP_COUNT; i += 1) {
+          normalized[i] = data[i] || data[String(i)];
+        }
+        setLoadProgress(100);
+        setSvgs(normalized);
+      } catch {
+        if (cancelled) return;
+        const data = await loadIndividually();
+        if (!cancelled) {
+          setLoadProgress(100);
+          setSvgs(data);
+        }
+      }
     }
 
     loadPeeps();
@@ -328,11 +473,12 @@ export default function PeepsPop() {
   }, []);
 
   useEffect(() => {
-    if (Object.keys(svgs).length === 0) return;
+    if (!svgs) return;
     const viewport = viewportRef.current;
     if (viewport) {
       viewport.scrollLeft = (viewport.scrollWidth - viewport.clientWidth) / 2;
       viewport.scrollTop = (viewport.scrollHeight - viewport.clientHeight) / 2;
+      syncView();
     }
     const frame = requestAnimationFrame(() => setLoaded(true));
     return () => cancelAnimationFrame(frame);
@@ -385,13 +531,15 @@ export default function PeepsPop() {
   }, [loaded]);
 
   useEffect(() => {
-    if (!musicOn) {
+    if (!loaded || !musicOn) {
       audioRef.current?.pause();
       return;
     }
 
     audioRef.current?.pause();
-    const audio = new Audio(TRACKS[trackIndex % TRACKS.length]);
+    const audio = new Audio();
+    audio.preload = "auto";
+    audio.src = TRACKS[trackIndex % TRACKS.length];
     audio.loop = true;
     audio.volume = 0.45;
     audioRef.current = audio;
@@ -402,7 +550,6 @@ export default function PeepsPop() {
 
     tryPlay();
 
-    // Browsers often block autoplay until a gesture — unlock on first interaction.
     const unlock = () => {
       tryPlay();
       window.removeEventListener("pointerdown", unlock);
@@ -415,16 +562,18 @@ export default function PeepsPop() {
 
     return () => {
       audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
       window.removeEventListener("touchstart", unlock);
     };
-  }, [musicOn, trackIndex]);
+  }, [musicOn, trackIndex, loaded]);
 
   const speedCfg = SPEED[speed];
 
-  const slots = useMemo(() => {
-    if (Object.keys(svgs).length === 0) return [];
+  const slotMeta = useMemo(() => {
+    if (!svgs) return [];
     const items = [];
     for (let row = 0; row < GRID; row += 1) {
       for (let col = 0; col < GRID; col += 1) {
@@ -438,20 +587,49 @@ export default function PeepsPop() {
             offsetY: (Math.random() - 0.5) * 8,
           });
         }
+        const factors = FACTOR_CACHE.get(key);
+        const peepId = SHUFFLED_IDS[index % SHUFFLED_IDS.length];
+        const pos = slotPosition(row, col, factors);
         items.push({
           key,
           row,
-          col,
-          html: colorizePeep(
-            svgs[SHUFFLED_IDS[index % SHUFFLED_IDS.length]],
-            hashSeed(key)
-          ),
-          factors: FACTOR_CACHE.get(key),
+          peepId,
+          seed: hashSeed(key),
+          factors,
+          left: pos.left,
+          top: pos.top,
         });
       }
     }
     return items;
   }, [svgs]);
+
+  const visibleSlots = useMemo(() => {
+    if (!svgs || slotMeta.length === 0) return [];
+    const minX = view.left - VIEW_PAD;
+    const maxX = view.left + view.width + VIEW_PAD;
+    const minY = view.top - VIEW_PAD;
+    const maxY = view.top + view.height + VIEW_PAD;
+
+    const visible = [];
+    for (const slot of slotMeta) {
+      if (
+        slot.left + PEEP_W < minX ||
+        slot.left > maxX ||
+        slot.top + PEEP_H < minY ||
+        slot.top > maxY
+      ) {
+        continue;
+      }
+      const resolved = resolveTemplate(svgs, slot.peepId);
+      if (!resolved) continue;
+      visible.push({
+        ...slot,
+        html: getColoredHtml(resolved.id, resolved.template, slot.seed),
+      });
+    }
+    return visible;
+  }, [svgs, slotMeta, view]);
 
   function triggerEarthquake() {
     if (earthquake) return;
@@ -459,11 +637,12 @@ export default function PeepsPop() {
     setTimeout(() => setEarthquake(false), 1500);
   }
 
-  if (Object.keys(svgs).length === 0) {
+  if (!svgs) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-peeps-bg">
-        <div className="text-2xl font-medium text-peeps-ink">
-          Loading peeps...
+      <div className="flex h-screen w-screen flex-col items-center justify-center gap-3 bg-peeps-bg">
+        <div className="loading-peeps">Loading peeps…</div>
+        <div className="loading-bar" aria-hidden>
+          <div className="loading-bar-fill" style={{ width: `${loadProgress}%` }} />
         </div>
       </div>
     );
@@ -481,58 +660,85 @@ export default function PeepsPop() {
         ]
           .filter(Boolean)
           .join(" ")}
-        style={{ width: 4175, height: 3766, position: "relative" }}
+        style={{ width: CROWD_W, height: CROWD_H, position: "relative" }}
       >
-        {slots.map(({ key, row, col, html, factors }) => (
+        {visibleSlots.map(({ key, row, left, top, html, factors }) => (
           <div
             key={key}
             className={`peep-slot${!loaded ? " peep-slot--enter" : ""}`}
             data-row-parity={row % 2 === 0 ? "even" : "odd"}
             style={{
               position: "absolute",
-              left: 155 * col + 75 * (row % 2 === 1) + factors.offsetX,
-              top: 135 * row + factors.offsetY,
-              width: 260,
-              height: 351,
+              left,
+              top,
+              width: PEEP_W,
+              height: PEEP_H,
               zIndex: row,
               "--dur": `${(speedCfg.baseDur + factors.durationFactor * speedCfg.durRange).toFixed(3)}s`,
               "--del": `${(factors.delayFactor * speedCfg.delayMult).toFixed(3)}s`,
-              ...(!loaded ? { "--reveal-delay": `${0.12 * row}s` } : {}),
+              ...(!loaded ? { "--reveal-delay": `${Math.min(0.12 * row, 1.2)}s` } : {}),
             }}
             dangerouslySetInnerHTML={{ __html: html }}
           />
         ))}
       </div>
 
-      <div className="topbar">
-        <div className="topbar-row">
-          <div className="topbar-group">
-            <div className="topbar-inner">
-              <button type="button" title="Vertical" className={`topbar-btn icon-btn${motion === "vertical" ? " active" : ""}`} onClick={() => setMotion("vertical")}><IconVertical /></button>
-              <button type="button" title="Horizontal" className={`topbar-btn icon-btn${motion === "horizontal" ? " active" : ""}`} onClick={() => setMotion("horizontal")}><IconHorizontal /></button>
-              <button type="button" title="Circular" className={`topbar-btn icon-btn${motion === "circular" ? " active" : ""}`} onClick={() => setMotion("circular")}><IconCircular /></button>
-              <button type="button" title="Swing" className={`topbar-btn icon-btn${motion === "swing" ? " active" : ""}`} onClick={() => setMotion("swing")}><IconSwing /></button>
+      <div className="topbar" role="toolbar" aria-label="Crowd controls">
+        <div className="control-dock">
+          <div className="control-section">
+            <span className="control-label">Motion</span>
+            <div className="control-seg" role="group" aria-label="Motion">
+              <button type="button" title="Vertical" aria-pressed={motion === "vertical"} className={`ctrl-btn icon-btn${motion === "vertical" ? " active" : ""}`} onClick={() => setMotion("vertical")}><IconVertical /></button>
+              <button type="button" title="Horizontal" aria-pressed={motion === "horizontal"} className={`ctrl-btn icon-btn${motion === "horizontal" ? " active" : ""}`} onClick={() => setMotion("horizontal")}><IconHorizontal /></button>
+              <button type="button" title="Circular" aria-pressed={motion === "circular"} className={`ctrl-btn icon-btn${motion === "circular" ? " active" : ""}`} onClick={() => setMotion("circular")}><IconCircular /></button>
+              <button type="button" title="Swing" aria-pressed={motion === "swing"} className={`ctrl-btn icon-btn${motion === "swing" ? " active" : ""}`} onClick={() => setMotion("swing")}><IconSwing /></button>
             </div>
           </div>
-          <div className="topbar-group">
-            <div className="topbar-inner">
-              <button type="button" className={`topbar-btn${speed === "slow" ? " active" : ""}`} onClick={() => setSpeed((c) => (c === "slow" ? "normal" : "slow"))}>Slow</button>
-              <button type="button" className={`topbar-btn${speed === "fast" ? " active" : ""}`} onClick={() => setSpeed((c) => (c === "fast" ? "normal" : "fast"))}>Fast</button>
+
+          <div className="control-divider" aria-hidden />
+
+          <div className="control-section">
+            <span className="control-label">Tempo</span>
+            <div className="control-seg" role="group" aria-label="Tempo">
+              <button type="button" aria-pressed={speed === "slow"} className={`ctrl-btn text-btn${speed === "slow" ? " active" : ""}`} onClick={() => setSpeed((c) => (c === "slow" ? "normal" : "slow"))}>
+                <IconSlow />
+                <span>Slow</span>
+              </button>
+              <button type="button" aria-pressed={speed === "fast"} className={`ctrl-btn text-btn${speed === "fast" ? " active" : ""}`} onClick={() => setSpeed((c) => (c === "fast" ? "normal" : "fast"))}>
+                <IconFast />
+                <span>Fast</span>
+              </button>
             </div>
           </div>
-        </div>
-        <div className="topbar-row">
-          <div className="topbar-group">
-            <div className="topbar-inner">
-              <button type="button" className={`topbar-btn${!musicOn ? " active" : ""}`} onClick={() => setMusicOn(false)}>Off</button>
-              <button type="button" className={`topbar-btn${musicOn ? " active" : ""}`} onClick={() => { setTrackIndex((i) => i + 1); setMusicOn(true); }}>♪ On</button>
+
+          <div className="control-divider" aria-hidden />
+
+          <div className="control-section">
+            <span className="control-label">Music</span>
+            <div className="control-seg" role="group" aria-label="Music">
+              <button type="button" aria-pressed={!musicOn} className={`ctrl-btn text-btn${!musicOn ? " active" : ""}`} onClick={() => setMusicOn(false)}>
+                <IconMusicOff />
+                <span>Off</span>
+              </button>
+              <button type="button" aria-pressed={musicOn} title="Play next track" className={`ctrl-btn text-btn${musicOn ? " active" : ""}`} onClick={() => { setTrackIndex((i) => i + 1); setMusicOn(true); }}>
+                <IconMusicOn />
+                <span>On</span>
+              </button>
             </div>
           </div>
-          <div className="topbar-group">
-            <div className="topbar-inner">
-              <button type="button" title="Earthquake" className={`topbar-btn icon-btn${earthquake ? " active" : ""}`} onClick={triggerEarthquake}><IconQuake /></button>
-            </div>
-          </div>
+
+          <div className="control-divider" aria-hidden />
+
+          <button
+            type="button"
+            title="Earthquake"
+            aria-pressed={earthquake}
+            className={`ctrl-btn quake-btn${earthquake ? " active" : ""}`}
+            onClick={triggerEarthquake}
+          >
+            <IconQuake />
+            <span>Quake</span>
+          </button>
         </div>
       </div>
     </div>
